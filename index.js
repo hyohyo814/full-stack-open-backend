@@ -1,18 +1,18 @@
 const express = require("express");
 const morgan = require("morgan");
+const cors = require("cors");
 const app = express();
 
-
 app.use(express.json());
+app.use(cors());
+app.use(express.static("build"));
 
-//app.use(morgan('tiny', {skip: (req) => req.statusCode < 400}))
-
-
-app.use(morgan(
+app.use(
+  morgan(
     ":method :url :status :res[content-length] - :response-time ms :logger",
-    {skip: (req, res) => res.statusCode === 400 || req.statusCode === 204}
-));
-
+    { skip: (req, res) => res.statusCode === 400 || req.statusCode === 204 }
+  )
+);
 
 let persons = [
   {
@@ -40,7 +40,7 @@ let persons = [
 app.get("/", (req, res) => {
   res.send("<h1>persons</h1>");
   morgan.token("logger", (req, res) => {
-    return
+    return;
   });
 });
 
@@ -54,7 +54,7 @@ app.get("/info", (req, res) => {
         <p>${date}</p>`
   );
   morgan.token("logger", (req, res) => {
-    return
+    return;
   });
 });
 
@@ -105,11 +105,10 @@ app.post("/api/persons", (req, res) => {
   persons = persons.concat(person);
 
   res.json(persons);
-  
+
   morgan.token("logger", (req, res) => {
     return JSON.stringify(req.body);
   });
-
 });
 
 app.delete("/api/persons/:id", (req, res) => {
@@ -123,8 +122,31 @@ app.delete("/api/persons/:id", (req, res) => {
   });
 });
 
+app.put("/api/persons/:id", (req, res) => {
+  const putId = Number(req.params.id);
+  const body = req.body;
 
+  const check = persons.findIndex((p) => p.id === putId);
+  //console.log(check);
+  //console.log(body);
+  //console.log(persons[check]);
+  //console.log(putId);
 
-const PORT = 3001;
-app.listen(PORT);
-console.log(`Server running on port ${PORT}`);
+  const update = {
+    id: putId,
+    name: body.name,
+    number: body.number,
+  };
+
+  persons[check] = update;
+
+  res.status(200).end();
+  morgan.token("logger", (req, res) => {
+    return JSON.stringify(req.body);
+  });
+});
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
