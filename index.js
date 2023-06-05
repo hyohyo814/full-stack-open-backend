@@ -25,19 +25,23 @@ app.get("/", (req, res, next) => {
 });
 
 app.get("/info", (req, res, next) => {
-  Person.count({}).then((count) => {
-    const date = Date();
-    res.send(
-      `<p>Phonebook has info for ${count} people</p>
+  Person.count({})
+    .then((count) => {
+      const date = Date();
+      res.send(
+        `<p>Phonebook has info for ${count} people</p>
           <p>${date}</p>`
-    );
-  }).catch((err) => next(err));
+      );
+    })
+    .catch((err) => next(err));
 });
 
 app.get("/api/persons", (req, res, next) => {
-  Person.find({}).then((persons) => {
-    res.json(persons);
-  }).catch((err) => next(err));
+  Person.find({})
+    .then((persons) => {
+      res.json(persons);
+    })
+    .catch((err) => next(err));
 });
 
 app.get("/api/persons/:id", (req, res, next) => {
@@ -65,42 +69,47 @@ app.post("/api/persons", (req, res, next) => {
     number: body.number,
   });
 
-  person.save().then(newPerson => {
-    res.json(newPerson)
-  }).catch(err => next(err));
+  person
+    .save()
+    .then((newPerson) => {
+      res.json(newPerson);
+    })
+    .catch((err) => next(err));
 });
 
 app.delete("/api/persons/:id", (req, res, next) => {
-  Person.findByIdAndRemove(req.params.id).then(deleted => {
-    res.status(204).end();
-  }).catch(error => next(error));
+  Person.findByIdAndRemove(req.params.id)
+    .then((deleted) => {
+      res.status(204).end();
+    })
+    .catch((error) => next(error));
 });
 
 app.put("/api/persons/:id", (req, res, next) => {
-  const body = req.body;
-  const update = {
-    id: req.params.id,
-    name: body.name,
-    number: body.number,
-  };
+  const { name, number } = req.body;
 
-  Person.findByIdAndUpdate(req.params.id, update, { new: true})
-    .then(updatedContact => {
+  Person.findByIdAndUpdate(
+    req.params.id, 
+    { name, number }, 
+    { new: true, runValidators: true, context: 'query'})
+    .then((updatedContact) => {
       res.json(updatedContact);
     })
-    .catch(err => next(err));
+    .catch((err) => next(err));
 });
 
 const errorHandler = (err, req, res, next) => {
-  console.log(err.message)
+  console.log(err.message);
 
   if (err.name === "CastError") {
-    return res.status(404).send({ error: 'malformatted id' })
+    return res.status(404).send({ error: "malformatted id" });
+  } else if (err.name === "ValidationError") {
+    return res.status(400).json({ error: err.message })
   }
-  next(err)
-}
+  next(err);
+};
 
-app.use(errorHandler)
+app.use(errorHandler);
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => {
