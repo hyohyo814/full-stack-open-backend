@@ -6,7 +6,11 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:ui": "@powershell Remove-Item -Recurse -Force build && cd ../full-stack-open-sub/part3/phonebook && npm run build && @powershell Copy-Item build -Recurse ../../../full-stack-open-backend",
+    "deploy": "fly deploy",
+    "deploy:full": "npm run build:ui && npm run deploy",
+    "logs:prod": "fly logs"
   },
   "repository": {
     "type": "git",
@@ -19,11 +23,15 @@
   },
   "homepage": "https://github.com/hyohyo814/full-stack-open-backend#readme",
   "devDependencies": {
+    "@flydotio/dockerfile": "^0.2.14",
+    "dotenv": "^16.1.3",
     "nodemon": "^2.0.22"
   },
   "dependencies": {
+    "cors": "^2.8.5",
     "express": "^4.18.2",
     "fs": "^0.0.1-security",
+    "mongoose": "^7.2.2",
     "morgan": "^1.10.0"
   }
 }

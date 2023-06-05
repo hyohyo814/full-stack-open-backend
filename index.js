@@ -1,85 +1,55 @@
+require("dotenv").config();
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
 const app = express();
 
-app.use(express.json());
-app.use(cors());
-app.use(express.static("build"));
+const Person = require("./models/person");
 
+morgan.token("logger", (req, res) => {
+  return JSON.stringify(req.body);
+});
+
+app.use(express.static("build"));
+app.use(cors());
+app.use(express.json());
 app.use(
   morgan(
-    ":method :url :status :res[content-length] - :response-time ms :logger",
+    ":method :url :status :logger :res[content-length] - :response-time ms",
     { skip: (req, res) => res.statusCode === 400 || req.statusCode === 204 }
   )
 );
 
-let persons = [
-  {
-    id: 1,
-    name: "Arto Hellas",
-    number: "040-123456",
-  },
-  {
-    id: 2,
-    name: "Ada Lovelace",
-    number: "39-44-5323523",
-  },
-  {
-    id: 3,
-    name: "Dan Abramov",
-    number: "12-43-234345",
-  },
-  {
-    id: 4,
-    name: "Mary Poppendieck",
-    number: "39-23-6423122",
-  },
-];
-
-app.get("/", (req, res) => {
+app.get("/", (req, res, next) => {
   res.send("<h1>persons</h1>");
-  morgan.token("logger", (req, res) => {
-    return;
-  });
 });
 
-app.get("/info", (req, res) => {
-  const count = [...persons].length;
-  const date = Date();
-  console.log(count);
-  console.log(date);
-  res.send(
-    `<p>Phonebook has info for ${count} people</p>
-        <p>${date}</p>`
-  );
-  morgan.token("logger", (req, res) => {
-    return;
-  });
+app.get("/info", (req, res, next) => {
+  Person.count({}).then((count) => {
+    const date = Date();
+    res.send(
+      `<p>Phonebook has info for ${count} people</p>
+          <p>${date}</p>`
+    );
+  }).catch((err) => next(err));
 });
 
-app.get("/api/persons", (req, res) => {
-  res.json(persons);
-  morgan.token("logger", (req, res) => {
-    return;
-  });
+app.get("/api/persons", (req, res, next) => {
+  Person.find({}).then((persons) => {
+    res.json(persons);
+  }).catch((err) => next(err));
 });
 
-app.get("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const person = persons.find((p) => p.id === id);
-
-  person ? res.json(person) : res.status(404).end();
+app.get("/api/persons/:id", (req, res, next) => {
+  Person.findById(req.params.id)
+    .then((persons) => {
+      res.json(persons);
+    })
+    .catch((err) => next(err));
 });
 
-const genId = () => {
-  const id = Math.floor(Math.random() * 99999);
-  return id;
-};
-
-app.post("/api/persons", (req, res) => {
+app.post("/api/persons", (req, res, next) => {
   const body = req.body;
-  const names = persons.map((p) => p.name);
   //console.log(names);
 
   if (!body.name) {
@@ -90,63 +60,49 @@ app.post("/api/persons", (req, res) => {
     return res.status(400).json({ error: "number missing" });
   }
 
-  const check = names.find((n) => n.toLowerCase() === body.name.toLowerCase());
-  //console.log(check);
-  if (check !== undefined) {
-    return res.status(400).json({ error: "name must be unique" });
-  }
-
-  const person = {
-    id: genId(),
+  const person = new Person({
     name: body.name,
     number: body.number,
-  };
-
-  persons = persons.concat(person);
-
-  res.json(persons);
-
-  morgan.token("logger", (req, res) => {
-    return JSON.stringify(req.body);
   });
+
+  person.save().then(newPerson => {
+    res.json(newPerson)
+  }).catch(err => next(err));
 });
 
-app.delete("/api/persons/:id", (req, res) => {
-  const id = Number(req.params.id);
-  persons = persons.filter((p) => p.id !== id);
-
-  res.status(204).end();
-
-  morgan.token("logger", (req, res) => {
-    return JSON.stringify(req.body);
-  });
+app.delete("/api/persons/:id", (req, res, next) => {
+  Person.findByIdAndRemove(req.params.id).then(deleted => {
+    res.status(204).end();
+  }).catch(error => next(error));
 });
 
-app.put("/api/persons/:id", (req, res) => {
-  const putId = Number(req.params.id);
+app.put("/api/persons/:id", (req, res, next) => {
   const body = req.body;
-
-  const check = persons.findIndex((p) => p.id === putId);
-  //console.log(check);
-  //console.log(body);
-  //console.log(persons[check]);
-  //console.log(putId);
-
   const update = {
-    id: putId,
+    id: req.params.id,
     name: body.name,
     number: body.number,
   };
 
-  persons[check] = update;
-
-  res.status(200).end();
-  morgan.token("logger", (req, res) => {
-    return JSON.stringify(req.body);
-  });
+  Person.findByIdAndUpdate(req.params.id, update, { new: true})
+    .then(updatedContact => {
+      res.json(updatedContact);
+    })
+    .catch(err => next(err));
 });
 
-const PORT = process.env.PORT || 3001;
+const errorHandler = (err, req, res, next) => {
+  console.log(err.message)
+
+  if (err.name === "CastError") {
+    return res.status(404).send({ error: 'malformatted id' })
+  }
+  next(err)
+}
+
+app.use(errorHandler)
+
+const PORT = process.env.PORT;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
